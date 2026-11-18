@@ -64,7 +64,7 @@ By type/date/size/keyword + local AI suggestions folder structure & renames. Pre
 |------|---------|------------------------|----------|
 | **Free** | $0 | — | Personal core search, name/path, image/text preview, 10 bookmarks |
 | **Pro** | $9.99/mo | $99/yr | Unlimited drives, content search, full preview, treemap, dedup, organize |
-| **Team** | $19.99/user/mo | $199/user/yr | All Pro + shared presets, SSO hook, admin policies, priority support |
+| **Team** | $29/user/mo | $290/user/yr | All Pro + shared presets, SSO hook, admin policies, priority support |
 
 **Free is genuinely useful** — Everything-level name search speed, so it spreads organically. Pro unlocks the five differentiators professionals pay for. Team adds the collaboration/billing surface.
 
