@@ -1,0 +1,9 @@
+{
+  "name": "fathom-landing",
+  "version": "1.0.0",
+  "description": "Fathom - Find files before you forget them",
+  "scripts": {
+    "build": "mkdir -p ../docs && cp -r * ../docs/ 2>/dev/null; echo done"
+  },
+  "private": true
+}

@@ -1,0 +1,1111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fathom — Find files before you forget them</title>
+  <meta name="description" content="Fathom is a lightning-fast desktop search app that finds any file on your computer instantly. Search by name, path, or content. Organize, deduplicate, and analyze disk usage — all in one beautiful interface.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #06090F;
+      --bg-elevated: #0A0F1A;
+      --surface: #0E141F;
+      --border: #1E2A3A;
+      --fg: #E7EDF6;
+      --muted: #8A98B4;
+      --accent: #2FB8A6;
+      --accent-dim: #1A6B5E;
+      --accent-glow: rgba(47, 184, 166, 0.4);
+      --warning: #F5A623;
+      --danger: #E04F5F;
+      --radius: 12px;
+      --radius-sm: 8px;
+      --shadow: 0 20px 60px rgba(0,0,0,0.5);
+      --shadow-glow: 0 0 60px rgba(47, 184, 166, 0.15);
+      --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    @media (prefers-color-scheme: light) {
+      :root {
+        --bg: #F8FAFC;
+        --bg-elevated: #FFFFFF;
+        --surface: #F1F5F9;
+        --border: #E2E8F0;
+        --fg: #0F172A;
+        --muted: #64748B;
+        --accent: #0D9488;
+        --accent-dim: #0F766E;
+        --accent-glow: rgba(13, 148, 136, 0.3);
+        --shadow: 0 20px 60px rgba(15, 23, 42, 0.1);
+        --shadow-glow: 0 0 60px rgba(13, 148, 136, 0.15);
+      }
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg);
+      color: var(--fg);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+    a { color: var(--accent); text-decoration: none; transition: color var(--transition); }
+    a:hover { color: var(--accent-dim); }
+    img { max-width: 100%; height: auto; display: block; }
+
+    /* Layout */
+    .container { width: 100%; max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+    .section { padding: 100px 0; }
+    .section-header { text-align: center; margin-bottom: 64px; }
+    .section-header h2 { font-size: clamp(2rem, 4vw, 3rem); font-weight: 700; margin-bottom: 16px; letter-spacing: -0.02em; }
+    .section-header p { font-size: 1.125rem; color: var(--muted); max-width: 700px; margin: 0 auto; }
+
+    /* Navigation */
+    nav { position: fixed; top: 0; left: 0; right: 0; z-index: 100; background: rgba(6, 9, 15, 0.85); backdrop-filter: blur(20px); border-bottom: 1px solid var(--border); }
+    @media (prefers-color-scheme: light) { nav { background: rgba(248, 250, 252, 0.85); } }
+    .nav-inner { display: flex; align-items: center; justify-content: space-between; height: 72px; max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+    .logo { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 1.25rem; color: var(--fg); }
+    .logo svg { width: 28px; height: 28px; color: var(--accent); }
+    .nav-links { display: none; gap: 32px; list-style: none; }
+    .nav-links a { color: var(--muted); font-weight: 500; font-size: 0.9rem; transition: color var(--transition); }
+    .nav-links a:hover { color: var(--fg); }
+    .nav-cta { display: flex; gap: 12px; }
+    @media (min-width: 768px) { .nav-links { display: flex; } }
+
+    /* Buttons */
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 14px 28px; font-family: inherit; font-weight: 600; font-size: 0.9375rem; border-radius: var(--radius-sm); border: none; cursor: pointer; transition: all var(--transition); white-space: nowrap; }
+    .btn-primary { background: var(--accent); color: #06090F; box-shadow: var(--shadow-glow); }
+    .btn-primary:hover { background: var(--accent-dim); transform: translateY(-2px); box-shadow: 0 8px 30px rgba(47, 184, 166, 0.3); }
+    .btn-secondary { background: var(--surface); color: var(--fg); border: 1px solid var(--border); }
+    .btn-secondary:hover { background: var(--bg-elevated); border-color: var(--accent); }
+    .btn-lg { padding: 18px 36px; font-size: 1rem; }
+    .btn-block { width: 100%; }
+
+    /* Canvas Background */
+    #canvas-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none; }
+    #canvas-container canvas { display: block; }
+
+    /* Hero */
+    .hero { min-height: 100vh; display: flex; align-items: center; padding-top: 72px; }
+    .hero-inner { display: grid; grid-template-columns: 1fr; gap: 60px; align-items: center; }
+    @media (min-width: 900px) { .hero-inner { grid-template-columns: 1fr 1fr; } }
+    .hero-badge { display: inline-block; padding: 6px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 100px; font-size: 0.8125rem; font-weight: 500; color: var(--accent); margin-bottom: 24px; }
+    .hero h1 { font-size: clamp(2.5rem, 5vw, 4rem); font-weight: 700; line-height: 1.1; letter-spacing: -0.03em; margin-bottom: 24px; }
+    .hero .accent { color: var(--accent); }
+    .lead { font-size: 1.25rem; color: var(--muted); margin-bottom: 32px; max-width: 540px; }
+    .hero-actions { display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 48px; }
+    .hero-stats { display: flex; flex-wrap: wrap; gap: 32px; }
+    .stat { min-width: 120px; }
+    .stat-value { font-family: 'JetBrains Mono', monospace; font-size: 2rem; font-weight: 700; color: var(--accent); line-height: 1; margin-bottom: 4px; }
+    .stat-label { font-size: 0.875rem; color: var(--muted); }
+
+    /* App Mockup */
+    .app-mockup { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); }
+    .mockup-titlebar { display: flex; align-items: center; padding: 12px 16px; background: var(--surface); border-bottom: 1px solid var(--border); }
+    .mockup-dots { display: flex; gap: 6px; }
+    .mockup-dots span { width: 12px; height: 12px; border-radius: 50%; background: var(--border); }
+    .mockup-dots span:first-child { background: #E04F5F; }
+    .mockup-dots span:nth-child(2) { background: #F5A623; }
+    .mockup-dots span:last-child { background: #2FB8A6; }
+    .mockup-title { flex: 1; text-align: center; font-size: 0.8125rem; font-weight: 500; color: var(--muted); font-family: 'JetBrains Mono', monospace; }
+    .mockup-content { padding: 24px; }
+    .mockup-search { margin-bottom: 20px; }
+    .mockup-search-input { width: 100%; padding: 14px 18px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--fg); font-family: 'JetBrains Mono', monospace; font-size: 0.9375rem; outline: none; transition: border-color var(--transition); }
+    .mockup-search-input:focus { border-color: var(--accent); }
+    .mockup-results { display: flex; gap: 24px; }
+    .mockup-results-list { flex: 1; min-width: 0; }
+    .mockup-result { display: flex; align-items: center; gap: 12px; padding: 10px; border-radius: var(--radius-sm); transition: background var(--transition); cursor: pointer; }
+    .mockup-result:hover { background: var(--surface); }
+    .mockup-result-icon { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 8px; font-size: 0.75rem; font-weight: 600; font-family: 'JetBrains Mono', monospace; flex-shrink: 0; }
+    .mockup-result-icon.code { background: rgba(47, 184, 166, 0.15); color: var(--accent); }
+    .mockup-result-icon.folder { background: rgba(245, 166, 35, 0.15); color: var(--warning); }
+    .mockup-result-icon.image { background: rgba(139, 92, 246, 0.15); color: #8B5CF6; }
+    .mockup-result-icon.pdf { background: rgba(224, 79, 95, 0.15); color: var(--danger); }
+    .mockup-result-info { flex: 1; min-width: 0; }
+    .mockup-result-name { font-weight: 600; font-size: 0.9375rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .mockup-result-path { font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .mockup-result-meta { font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: var(--muted); }
+    .mockup-detail { margin-top: 20px; padding: 16px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; line-height: 1.7; max-height: 200px; overflow: auto; }
+    .mockup-detail h4 { margin-bottom: 12px; font-family: inherit; font-size: 0.875rem; color: var(--fg); }
+    .mockup-detail-content { color: var(--muted); }
+    .mockup-detail .keyword { color: #8B5CF6; }
+    .mockup-detail .string { color: var(--accent); }
+
+    /* Pain Point Section */
+    .pain-point { background: linear-gradient(180deg, var(--bg) 0%, var(--bg-elevated) 100%); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+    .pain-grid { display: grid; grid-template-columns: 1fr; gap: 40px; }
+    @media (min-width: 900px) { .pain-grid { grid-template-columns: 1fr 1fr; align-items: center; } }
+    .pain-visual { position: relative; }
+    .pain-drive { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; }
+    .drive-row { display: flex; align-items: center; gap: 16px; margin-bottom: 20px; }
+    .drive-row:last-child { margin-bottom: 0; }
+    .drive-label { width: 60px; font-weight: 600; font-size: 0.875rem; font-family: 'JetBrains Mono', monospace; color: var(--muted); }
+    .drive-bar { flex: 1; height: 16px; background: var(--bg); border-radius: 100px; overflow: hidden; position: relative; }
+    .drive-fill { height: 100%; border-radius: 100px; transition: width 1s cubic-bezier(0.4, 0, 0.2, 1); }
+    .drive-fill.c { background: linear-gradient(90deg, var(--danger), #FF6B6B); width: 97%; }
+    .drive-fill.d { background: linear-gradient(90deg, var(--warning), #F5A623); width: 96%; }
+    .drive-pct { width: 50px; text-align: right; font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 0.875rem; }
+    .drive-pct.c { color: var(--danger); }
+    .drive-pct.d { color: var(--warning); }
+    .pain-bullets { list-style: none; margin-top: 32px; }
+    .pain-bullets li { display: flex; align-items: flex-start; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+    .pain-bullets li:last-child { border-bottom: none; }
+    .pain-bullets svg { flex-shrink: 0; width: 20px; height: 20px; color: var(--accent); margin-top: 2px; }
+
+    /* Differentiator Sections */
+    .differentiator { position: relative; }
+    .differentiator::before { content: ''; position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 1px; height: 100%; background: linear-gradient(180deg, transparent, var(--border), transparent); opacity: 0.5; }
+    .diff-inner { display: grid; grid-template-columns: 1fr; gap: 48px; align-items: center; }
+    @media (min-width: 900px) { .diff-inner { grid-template-columns: 1fr 1fr; } }
+    .differentiator:nth-child(even) .diff-inner { direction: rtl; }
+    .differentiator:nth-child(even) .diff-inner > * { direction: ltr; }
+    .diff-number { font-family: 'JetBrains Mono', monospace; font-size: clamp(4rem, 8vw, 8rem); font-weight: 700; color: var(--accent); opacity: 0.08; line-height: 1; margin-bottom: -20px; }
+    .diff-content h3 { font-size: clamp(1.75rem, 3vw, 2.5rem); font-weight: 700; margin-bottom: 16px; letter-spacing: -0.02em; }
+    .diff-content p { font-size: 1.125rem; color: var(--muted); margin-bottom: 24px; }
+    .diff-features { list-style: none; display: grid; gap: 12px; margin-bottom: 24px; }
+    .diff-features li { display: flex; align-items: flex-start; gap: 12px; padding: 12px 16px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); transition: all var(--transition); }
+    .diff-features li:hover { border-color: var(--accent); transform: translateX(4px); }
+    .diff-features svg { flex-shrink: 0; width: 20px; height: 20px; color: var(--accent); margin-top: 2px; }
+    .diff-visual { position: relative; }
+    .diff-canvas { width: 100%; height: 360px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); display: block; }
+
+    /* Pricing */
+    .pricing { background: linear-gradient(180deg, var(--bg) 0%, var(--bg-elevated) 100%); }
+    .pricing-toggle { display: flex; align-items: center; justify-content: center; gap: 16px; margin-bottom: 48px; }
+    .toggle-label { font-weight: 500; color: var(--muted); font-size: 0.9375rem; }
+    .toggle-label.active { color: var(--fg); }
+    .toggle-switch { position: relative; width: 64px; height: 32px; background: var(--surface); border: 1px solid var(--border); border-radius: 100px; cursor: pointer; transition: all var(--transition); }
+    .toggle-switch.active { background: var(--accent); border-color: var(--accent); }
+    .toggle-switch::after { content: ''; position: absolute; top: 2px; left: 2px; width: 24px; height: 24px; background: var(--fg); border-radius: 50%; box-shadow: 0 2px 8px rgba(0,0,0,0.3); transition: transform var(--transition); }
+    .toggle-switch.active::after { transform: translateX(32px); }
+    .toggle-save { font-size: 0.75rem; color: var(--accent); font-weight: 600; white-space: nowrap; }
+
+    .pricing-grid { display: grid; grid-template-columns: 1fr; gap: 24px; max-width: 1000px; margin: 0 auto; }
+    @media (min-width: 768px) { .pricing-grid { grid-template-columns: repeat(3, 1fr); } }
+    .pricing-card { position: relative; display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 32px; transition: all var(--transition); }
+    .pricing-card:hover { border-color: var(--accent); box-shadow: var(--shadow); }
+    .pricing-card.popular { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), var(--shadow-glow); }
+    .pricing-card.popular::before { content: 'Most Popular'; position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: var(--accent); color: #06090F; font-size: 0.75rem; font-weight: 700; padding: 4px 12px; border-radius: 100px; }
+    .pricing-tier { font-size: 1.25rem; font-weight: 600; margin-bottom: 8px; }
+    .pricing-price { font-family: 'JetBrains Mono', monospace; font-size: 3.5rem; font-weight: 700; margin-bottom: 4px; line-height: 1; }
+    .pricing-price span { font-size: 1rem; font-weight: 400; color: var(--muted); font-family: inherit; }
+    .pricing-desc { color: var(--muted); margin-bottom: 24px; }
+    .pricing-features { list-style: none; flex: 1; margin-bottom: 24px; display: grid; gap: 12px; }
+    .pricing-features li { display: flex; align-items: flex-start; gap: 10px; padding: 10px 0; color: var(--fg); border-bottom: 1px solid var(--border); }
+    .pricing-features li:last-child { border-bottom: none; }
+    .pricing-features svg { width: 20px; height: 20px; color: var(--accent); flex-shrink: 0; margin-top: 2px; }
+    .pricing-features li.disabled { color: var(--muted); }
+    .pricing-features li.disabled svg { color: var(--border); }
+
+    .comparison { margin-top: 64px; overflow-x: auto; }
+    .comparison table { width: 100%; border-collapse: collapse; font-size: 0.9375rem; }
+    .comparison th, .comparison td { padding: 16px; text-align: left; border-bottom: 1px solid var(--border); }
+    .comparison th { font-weight: 600; color: var(--fg); }
+    .comparison td:first-child { font-weight: 500; color: var(--muted); }
+    .comparison .check { color: var(--accent); text-align: center; }
+    .comparison .cross { color: var(--border); text-align: center; }
+
+    /* FAQ */
+    .faq { background: var(--bg); }
+    .faq-grid { max-width: 800px; margin: 0 auto; display: grid; gap: 16px; }
+    .faq-item { border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; background: var(--surface); transition: all var(--transition); }
+    .faq-item:hover { border-color: var(--accent); }
+    .faq-question { width: 100%; display: flex; align-items: center; justify-content: space-between; padding: 20px 24px; background: transparent; border: none; color: var(--fg); font-family: inherit; font-size: 1.0625rem; font-weight: 500; cursor: pointer; text-align: left; }
+    .faq-question svg { flex-shrink: 0; width: 24px; height: 24px; color: var(--accent); transition: transform var(--transition); margin-left: 16px; }
+    .faq-item.open .faq-question svg { transform: rotate(180deg); }
+    .faq-answer { max-height: 0; overflow: hidden; transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+    .faq-item.open .faq-answer { max-height: 500px; }
+    .faq-answer-inner { padding: 0 24px 24px; color: var(--muted); line-height: 1.7; }
+    .faq-answer-inner a { font-weight: 600; }
+
+    /* Download */
+    .download { background: linear-gradient(180deg, var(--bg) 0%, var(--bg-elevated) 100%); }
+    .download-grid { display: grid; grid-template-columns: 1fr; gap: 24px; }
+    @media (min-width: 900px) { .download-grid { grid-template-columns: repeat(3, 1fr); } }
+    .platform-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 32px; text-align: center; transition: all var(--transition); }
+    .platform-card:hover { border-color: var(--accent); transform: translateY(-4px); box-shadow: var(--shadow); }
+    .platform-icon { width: 56px; height: 56px; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center; background: var(--bg); border-radius: var(--radius-sm); color: var(--accent); }
+    .platform-card h3 { font-size: 1.25rem; font-weight: 600; margin-bottom: 8px; }
+    .platform-card p { color: var(--muted); margin-bottom: 8px; font-size: 0.9375rem; }
+    .platform-req { font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: var(--border); margin-bottom: 20px; }
+
+    /* Footer */
+    .footer { background: var(--bg-elevated); border-top: 1px solid var(--border); padding: 40px 0; }
+    .footer-inner { display: flex; flex-direction: column; align-items: center; gap: 20px; text-align: center; }
+    .footer-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 24px; }
+    .footer-links a { color: var(--muted); font-size: 0.9375rem; transition: color var(--transition); }
+    .footer-links a:hover { color: var(--accent); }
+    .footer-copy { font-size: 0.875rem; color: var(--muted); }
+
+    /* Animations */
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes drawLine { from { stroke-dashoffset: 100; } to { stroke-dashoffset: 0; } }
+
+    .animate-in { animation: fadeUp 0.8s cubic-bezier(0.4, 0, 0.2, 1) forwards; opacity: 0; }
+    .delay-1 { animation-delay: 0.1s; }
+    .delay-2 { animation-delay: 0.2s; }
+    .delay-3 { animation-delay: 0.3s; }
+    .delay-4 { animation-delay: 0.4s; }
+    .delay-5 { animation-delay: 0.5s; }
+    .delay-6 { animation-delay: 0.6s; }
+
+    /* Scroll reveal */
+    .reveal { opacity: 0; transform: translateY(20px); transition: all 0.7s cubic-bezier(0.4, 0, 0.2, 1); }
+    .reveal.visible { opacity: 1; transform: translateY(0); }
+
+    /* Reduced motion */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+      .animate-in { opacity: 1; animation: none; }
+      .reveal { opacity: 1; transform: none; }
+    }
+  </style>
+</head>
+<body>
+  <div id="canvas-container"></div>
+
+  <nav>
+    <div class="nav-inner">
+      <a href="#" class="logo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z"/>
+          <path d="M12 6v6l4 2"/>
+        </svg>
+        Fathom
+      </a>
+      <ul class="nav-links">
+        <li><a href="#pain-point">The Problem</a></li>
+        <li><a href="#features">Differentiators</a></li>
+        <li><a href="#pricing">Pricing</a></li>
+        <li><a href="#faq">FAQ</a></li>
+        <li><a href="#download">Download</a></li>
+      </ul>
+      <div class="nav-cta">
+        <a href="https://github.com/dexterity-admin/Fathom" target="_blank" class="btn btn-secondary">GitHub</a>
+        <a href="#download" class="btn btn-primary">Download</a>
+      </div>
+    </div>
+  </nav>
+
+  <main class="page">
+    <!-- Hero -->
+    <section class="hero section" aria-labelledby="hero-title">
+      <div class="container">
+        <div class="hero-inner">
+          <div class="hero-content">
+            <div class="hero-badge animate-in">v1.0.0 released — Windows, macOS, Linux</div>
+            <h1 id="hero-title" class="animate-in delay-1">Find files <span class="accent">before you forget</span> them</h1>
+            <p class="lead animate-in delay-2">Lightning-fast desktop search that indexes your drives in seconds. Search by name, path, or file content. Organize, deduplicate, and analyze disk usage — all in one beautiful interface.</p>
+            <div class="hero-actions animate-in delay-3">
+              <a href="#download" class="btn btn-primary btn-lg">Download for Free</a>
+              <a href="#features" class="btn btn-secondary btn-lg">Explore Features</a>
+            </div>
+            <div class="hero-stats animate-in delay-4">
+              <div class="stat">
+                <div class="stat-value">< 100ms</div>
+                <div class="stat-label">Search latency</div>
+              </div>
+              <div class="stat">
+                <div class="stat-value">1M+</div>
+                <div class="stat-label">Files indexed</div>
+              </div>
+              <div class="stat">
+                <div class="stat-value">3</div>
+                <div class="stat-label">Platforms</div>
+              </div>
+            </div>
+          </div>
+          <div class="hero-visual">
+            <div class="app-mockup animate-in delay-5" style="width: 100%; max-width: 720px; margin: 0 auto;">
+              <div class="mockup-titlebar">
+                <div class="mockup-dots"><span></span><span></span><span></span></div>
+                <span class="mockup-title">Fathom — Search & Organize</span>
+                <div style="width: 46px;"></div>
+              </div>
+              <div class="mockup-content">
+                <div class="mockup-search">
+                  <input type="text" class="mockup-search-input" placeholder="Search files... (name, path, content)" readonly value="config.json">
+                </div>
+                <div class="mockup-results">
+                  <div class="mockup-results-list">
+                    <div class="mockup-result">
+                      <div class="mockup-result-icon code"><></div>
+                      <div class="mockup-result-info">
+                        <div class="mockup-result-name">config.json</div>
+                        <div class="mockup-result-path">~/Projects/fathom/src/config.json</div>
+                      </div>
+                      <div class="mockup-result-meta">2.4 KB</div>
+                    </div>
+                    <div class="mockup-result">
+                      <div class="mockup-result-icon code"><></div>
+                      <div class="mockup-result-info">
+                        <div class="mockup-result-name">main.js</div>
+                        <div class="mockup-result-path">~/Projects/fathom/src/main.js</div>
+                      </div>
+                      <div class="mockup-result-meta">9.8 KB</div>
+                    </div>
+                    <div class="mockup-result">
+                      <div class="mockup-result-icon code"><></div>
+                      <div class="mockup-result-info">
+                        <div class="mockup-result-name">preload.js</div>
+                        <div class="mockup-result-path">~/Projects/fathom/src/preload.js</div>
+                      </div>
+                      <div class="mockup-result-meta">1.6 KB</div>
+                    </div>
+                    <div class="mockup-result">
+                      <div class="mockup-result-icon folder">DIR</div>
+                      <div class="mockup-result-info">
+                        <div class="mockup-result-name">renderer</div>
+                        <div class="mockup-result-path">~/Projects/fathom/src/renderer</div>
+                      </div>
+                      <div class="mockup-result-meta">—</div>
+                    </div>
+                    <div class="mockup-result">
+                      <div class="mockup-result-icon image">IMG</div>
+                      <div class="mockup-result-info">
+                        <div class="mockup-result-name">icon.png</div>
+                        <div class="mockup-result-path">~/Projects/fathom/assets/icon.png</div>
+                      </div>
+                      <div class="mockup-result-meta">124 KB</div>
+                    </div>
+                    <div class="mockup-result">
+                      <div class="mockup-result-icon pdf">PDF</div>
+                      <div class="mockup-result-info">
+                        <div class="mockup-result-name">architecture.pdf</div>
+                        <div class="mockup-result-path">~/Documents/architecture.pdf</div>
+                      </div>
+                      <div class="mockup-result-meta">4.2 MB</div>
+                    </div>
+                  </div>
+                  <div class="mockup-detail">
+                    <h4>Preview — config.json</h4>
+                    <div class="mockup-detail-content"><span class="keyword">{</span>
+  <span class="string">"name"</span>: <span class="string">"fathom"</span>,
+  <span class="string">"version"</span>: <span class="string">"1.0.0"</span>,
+  <span class="string">"description"</span>: <span class="string">"Find files before you forget them"</span>,
+  <span class="string">"main"</span>: <span class="string">"src/main.js"</span>,
+  <span class="string">"scripts"</span>: <span class="keyword">{</span>
+    <span class="string">"start"</span>: <span class="string">"electron ."</span>,
+    <span class="string">"build"</span>: <span class="string">"electron-builder"</span>,
+    <span class="string">"test"</span>: <span class="string">"node --test"</span>
+  <span class="keyword">}</span>,
+  <span class="string">"build"</span>: <span class="keyword">{</span>
+    <span class="string">"appId"</span>: <span class="string">"com.fathom.app"</span>,
+    <span class="string">"win"</span>: <span class="keyword">{</span> <span class="string">"target"</span>: [<span class="string">"nsis"</span>, <span class="string">"portable"</span>] <span class="keyword">}</span>
+  <span class="keyword">}</span>
+<span class="keyword">}</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Pain Point Section -->
+    <section id="pain-point" class="pain-point section reveal" aria-labelledby="pain-title">
+      <div class="container">
+        <div class="pain-grid">
+          <div>
+            <div class="section-header" style="text-align: left;">
+              <h2 id="pain-title">Your drives are full. You can't find anything.</h2>
+              <p>This isn't a hypothetical. This exact machine is the case study.</p>
+            </div>
+            <div class="pain-visual">
+              <div class="pain-drive">
+                <div class="drive-row">
+                  <span class="drive-label">C:</span>
+                  <div class="drive-bar"><div class="drive-fill c"></div></div>
+                  <span class="drive-pct c">97%</span>
+                </div>
+                <div class="drive-row">
+                  <span class="drive-label">D:</span>
+                  <div class="drive-bar"><div class="drive-fill d"></div></div>
+                  <span class="drive-pct d">96%</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div>
+            <ul class="pain-bullets">
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>Lost files, forgotten installers, duplicate downloads clogging every folder</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>Windows Explorer: slow, filename-only, no disk insight</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>Everything: blazing name search, but no content, no preview, dated Win32 UI</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>WinDirStat/TreeSize: treemap only — no search, no dedup, ugly</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>Result: you juggle 3+ apps and <em>still</em> can't answer "where's that contract mentioning NetSuite?"</li>
+            </ul>
+            <p style="margin-top: 24px; color: var(--muted);"><strong>Fathom collapses all of that into one beautiful, instant, private app.</strong> That's the wedge.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Differentiator 1: Content Search -->
+    <section id="features" class="differentiator section reveal" aria-labelledby="diff1-title">
+      <div class="container">
+        <div class="diff-inner">
+          <div class="diff-visual">
+            <canvas class="diff-canvas" id="diff-canvas-1" aria-label="Content search visualization"></canvas>
+          </div>
+          <div class="diff-content">
+            <div class="diff-number">01</div>
+            <h3 id="diff1-title">Content Search — <span class="accent">search what files say</span></h3>
+            <p>Full-text index inside PDF, DOCX, XLSX, PPTX, Markdown, code. Find files by <em>what they say</em>, not just their names. Everything cannot do this.</p>
+            <ul class="diff-features">
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>Ripgrep-powered, sub-100ms latency</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>Incremental re-indexing via chokidar</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>Match highlighting in results & preview</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>Saved searches & complex queries</li>
+            </ul>
+            <span class="tag" style="background: var(--accent); color: #06090F; font-weight: 600;">Pro feature</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Differentiator 2: Smart Preview -->
+    <section class="differentiator section reveal" aria-labelledby="diff2-title">
+      <div class="container">
+        <div class="diff-inner">
+          <div class="diff-visual">
+            <canvas class="diff-canvas" id="diff-canvas-2" aria-label="Smart preview visualization"></canvas>
+          </div>
+          <div class="diff-content">
+            <div class="diff-number">02</div>
+            <h3 id="diff2-title">Smart Preview — <span class="accent">see it without opening it</span></h3>
+            <p>Instant in-app preview of images (incl. HEIC), PDF first page, code with syntax highlighting for 40+ languages, text, markdown render, metadata panel. No context switching.</p>
+            <ul class="diff-features">
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>PDF: first page render + text extraction</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>Code: syntax highlight, line numbers, copy</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>Images: zoom, pan, EXIF metadata</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>Markdown: GitHub-flavored render</li>
+            </ul>
+            <span class="tag" style="background: var(--accent); color: #06090F; font-weight: 600;">Pro feature</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Differentiator 3: Disk Treemap -->
+    <section class="differentiator section reveal" aria-labelledby="diff3-title">
+      <div class="container">
+        <div class="diff-inner">
+          <div class="diff-visual">
+            <canvas class="diff-canvas" id="diff-canvas-3" aria-label="Disk treemap visualization"></canvas>
+          </div>
+          <div class="diff-content">
+            <div class="diff-number">03</div>
+            <h3 id="diff3-title">Disk Insight Treemap — <span class="accent">see what's eating your space</span></h3>
+            <p>Canvas-rendered Squarify treemap of drive usage. Click-to-drill into folders. Top-20 largest files. Cleanup suggestions. WinDirStat-inspired, but beautiful and fast.</p>
+            <ul class="diff-features">
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>Interactive zoom & breadcrumb navigation</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>Per-folder size bars & percentages</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>"What to clean" suggestions (caches, temp, duplicates)</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>Export CSV/JSON reports</li>
+            </ul>
+            <span class="tag" style="background: var(--accent); color: #06090F; font-weight: 600;">Pro feature</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Differentiator 4: Duplicate Finder -->
+    <section class="differentiator section reveal" aria-labelledby="diff4-title">
+      <div class="container">
+        <div class="diff-inner">
+          <div class="diff-visual">
+            <canvas class="diff-canvas" id="diff-canvas-4" aria-label="Duplicate finder visualization"></canvas>
+          </div>
+          <div class="diff-content">
+            <div class="diff-number">04</div>
+            <h3 id="diff4-title">Duplicate Finder — <span class="accent">reclaim space byte-for-byte</span></h3>
+            <p>Size prefilter + BLAKE2b/SHA-256 content hash grouping. Side-by-side preview. Safe bulk-to-trash (never hard-delete). Group by name, size, or content.</p>
+            <ul class="diff-features">
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>Two-pass: size groups → content hash</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>Side-by-side preview before delete</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>Send to Recycle Bin / Trash (recoverable)</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>Keep newest / oldest / shortest path</li>
+            </ul>
+            <span class="tag" style="background: var(--accent); color: #06090F; font-weight: 600;">Pro feature</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Differentiator 5: Auto-Organize -->
+    <section class="differentiator section reveal" aria-labelledby="diff5-title">
+      <div class="container">
+        <div class="diff-inner">
+          <div class="diff-visual">
+            <canvas class="diff-canvas" id="diff-canvas-5" aria-label="Auto-organize visualization"></canvas>
+          </div>
+          <div class="diff-content">
+            <div class="diff-number">05</div>
+            <h3 id="diff5-title">Auto-Organize — <span class="accent">rules that clean while you sleep</span></h3>
+            <p>Rules engine (by type/date/size/keyword) + local AI suggests folder structure and renames. Preview-diff before applying. One-click undo journal. Downloads → organized.</p>
+            <ul class="diff-features">
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>By type, date, size, keyword, regex</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>Dry-run preview shows exact moves</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>Undo journal — one click reverts all</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>Shared presets library (Team)</li>
+            </ul>
+            <span class="tag" style="background: var(--accent); color: #06090F; font-weight: 600;">Pro feature</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Pricing -->
+    <section id="pricing" class="pricing section reveal" aria-labelledby="pricing-title">
+      <div class="container">
+        <div class="section-header">
+          <h2 id="pricing-title">Simple, fair pricing</h2>
+          <p>Free forever for core search. Pro unlocks the five differentiators. Team adds collaboration.</p>
+        </div>
+
+        <div class="pricing-toggle">
+          <span class="toggle-label active" id="lbl-monthly">Monthly</span>
+          <div class="toggle-switch active" id="billing-toggle" role="switch" aria-checked="true" aria-label="Switch to annual billing"></div>
+          <span class="toggle-label" id="lbl-annual">Annual <span class="toggle-save">Save 17%</span></span>
+        </div>
+
+        <div class="pricing-grid">
+          <!-- Free -->
+          <article class="pricing-card" data-tier="free">
+            <div class="pricing-tier">Free</div>
+            <div class="pricing-price" data-monthly="0" data-annual="0">$0<span>/forever</span></div>
+            <p class="pricing-desc">Core search & preview for personal use</p>
+            <ul class="pricing-features">
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>Instant name/path search (≤2 drives, ≤200k files)</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>Rich previews (images, text, markdown)</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>Command palette (Ctrl+K)</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>Dark/Light themes</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>System tray + global hotkey</li>
+              <li class="disabled"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>Content search (Pro)</li>
+              <li class="disabled"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>Full preview: PDF, code, markdown (Pro)</li>
+              <li class="disabled"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>Disk treemap (Pro)</li>
+              <li class="disabled"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>Duplicate finder (Pro)</li>
+              <li class="disabled"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>Auto-organize (Pro)</li>
+            </ul>
+            <a href="#download" class="btn btn-secondary btn-block">Download Free</a>
+          </article>
+
+          <!-- Pro -->
+          <article class="pricing-card popular" data-tier="pro">
+            <div class="pricing-tier">Pro</div>
+            <div class="pricing-price" data-monthly="9.99" data-annual="99">$9.99<span>/mo</span></div>
+            <p class="pricing-desc">All features + priority updates</p>
+            <ul class="pricing-features">
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>Everything in Free</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>Unlimited drives & files indexed</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>Full-text content search</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>Full preview: PDF, code, markdown</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>Disk treemap + largest files + cleanup</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>Duplicate finder with byte-verify</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>Auto-organize with undo journal</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>Tags & virtual collections</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>Export reports (CSV, JSON)</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>Portable mode (USB stick)</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>Priority email support</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>Early beta access</li>
+            </ul>
+            <a href="#download" class="btn btn-primary btn-block">Get Pro</a>
+          </article>
+
+          <!-- Team -->
+          <article class="pricing-card" data-tier="team">
+            <div class="pricing-tier">Team</div>
+            <div class="pricing-price" data-monthly="19.99" data-annual="199">$19.99<span>/user/mo</span></div>
+            <p class="pricing-desc">Collaboration + admin controls</p>
+            <ul class="pricing-features">
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>Everything in Pro</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>Shared presets / rules library</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>Central license management</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>SSO-ready hook (documented)</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>Admin policies (disable features, pin paths)</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>Priority support</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>Volume discounts (10+ seats)</li>
+            </ul>
+            <a href="#download" class="btn btn-secondary btn-block">Contact Sales</a>
+          </article>
+        </div>
+
+        <div class="comparison">
+          <table>
+            <thead>
+              <tr><th>Feature</th><th>Free</th><th>Pro</th><th>Team</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Name & path search</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td></tr>
+              <tr><td>Drives / files limit</td><td>2 / 200k</td><td class="check">Unlimited</td><td class="check">Unlimited</td></tr>
+              <tr><td>Content search</td><td class="cross">✗</td><td class="check">✓</td><td class="check">✓</td></tr>
+              <tr><td>Full preview (PDF, code, MD)</td><td class="cross">✗</td><td class="check">✓</td><td class="check">✓</td></tr>
+              <tr><td>Disk treemap</td><td class="cross">✗</td><td class="check">✓</td><td class="check">✓</td></tr>
+              <tr><td>Duplicate finder</td><td class="cross">✗</td><td class="check">✓</td><td class="check">✓</td></tr>
+              <tr><td>Auto-organize + undo</td><td class="cross">✗</td><td class="check">✓</td><td class="check">✓</td></tr>
+              <tr><td>Tags & collections</td><td class="cross">✗</td><td class="check">✓</td><td class="check">✓</td></tr>
+              <tr><td>Shared presets</td><td class="cross">✗</td><td class="cross">✗</td><td class="check">✓</td></tr>
+              <tr><td>Central license / SSO hook</td><td class="cross">✗</td><td class="cross">✗</td><td class="check">✓</td></tr>
+              <tr><td>Admin policies</td><td class="cross">✗</td><td class="cross">✗</td><td class="check">✓</td></tr>
+              <tr><td>Updates</td><td class="check">✓</td><td class="check">Priority</td><td class="check">Priority</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- FAQ -->
+    <section id="faq" class="faq section reveal" aria-labelledby="faq-title">
+      <div class="container">
+        <div class="section-header">
+          <h2 id="faq-title">Questions?</h2>
+          <p>Everything you need to know before downloading.</p>
+        </div>
+        <div class="faq-grid">
+          <details class="faq-item">
+            <summary class="faq-question">Is Fathom really free? What's the catch?</summary>
+            <div class="faq-answer">
+              <div class="faq-answer-inner">Yes, the Free tier is genuinely free forever — no trial, no credit card, no account. It includes instant name/path search, image/text/markdown preview, command palette, themes, and tray/hotkey. The "catch" is we hope you love it enough to upgrade to Pro for content search, treemap, dedup, and auto-organize.</div>
+            </div>
+          </details>
+          <details class="faq-item">
+            <summary class="faq-question">Does my data leave my machine?</summary>
+            <div class="faq-answer">
+              <div class="faq-answer-inner">Never. Fathom is local-first by design. The search index, your settings, and your files all stay on your disk. There's no telemetry, no cloud sync, no account required. License validation is offline (HMAC-signed keys).</div>
+            </div>
+          </details>
+          <details class="faq-item">
+            <summary class="faq-question">What platforms are supported?</summary>
+            <div class="faq-answer">
+              <div class="faq-answer-inner">Windows 10 1903+ (x64/ARM64), macOS 12+ (Intel & Apple Silicon universal DMG), Linux (AppImage, .deb, .rpm, Snap, Flatpak — glibc 2.28+).</div>
+            </div>
+          </details>
+          <details class="faq-item">
+            <summary class="faq-question">How does content search work? Is it slow?</summary>
+            <div class="faq-answer">
+              <div class="faq-answer-inner">Content search uses ripgrep + an incremental SQLite index. First index takes minutes on large drives; subsequent updates are near-instant via filesystem watchers. Search latency stays under 100ms even on 1M+ files.</div>
+            </div>
+          </details>
+          <details class="faq-item">
+            <summary class="faq-question">Can I try Pro before buying?</summary>
+            <div class="faq-answer">
+              <div class="faq-answer-inner">Yes — every Pro feature is visible but gated in the Free tier. Click any Pro feature to see a demo of what it does. When ready, enter a license key (purchased from our site) to unlock instantly. No re-download needed.</div>
+            </div>
+          </details>
+          <details class="faq-item">
+            <summary class="faq-question">What's the difference between monthly and annual billing?</summary>
+            <div class="faq-answer">
+              <div class="faq-answer-inner">Annual gives you 2 months free (17% off). Pro: $9.99/mo → $99/yr. Team: $19.99/user/mo → $199/user/yr. You can switch anytime; unused time is prorated.</div>
+            </div>
+          </details>
+          <details class="faq-item">
+            <summary class="faq-question">How does the license key work? Do I need an account?</summary>
+            <div class="faq-answer">
+              <div class="faq-answer-inner">No account needed. Purchase → receive an HMAC-signed key (e.g., <code>FATHOM-PRO-…</code>) → paste into Fathom once. It validates offline. Team plans use a central license file + optional SSO hook.</div>
+            </div>
+          </details>
+          <details class="faq-item">
+            <summary class="faq-question">Is there a portable version?</summary>
+            <div class="faq-answer">
+              <div class="faq-answer-inner">Yes — Windows portable (no install, runs from USB) is a Pro feature. Linux AppImage is inherently portable. macOS doesn't have a true portable build due to Gatekeeper.</div>
+            </div>
+          </details>
+          <details class="faq-item">
+            <summary class="faq-question">What file types does content search support?</summary>
+            <div class="faq-answer">
+              <div class="faq-answer-inner">PDF, DOCX, XLSX, PPTX, Markdown, plain text, and 50+ code languages. More formats added regularly — see the <a href="https://github.com/dexterity-admin/Fathom#supported-formats" target="_blank">full list</a>.</div>
+            </div>
+          </details>
+          <details class="faq-item">
+            <summary class="faq-question">How do I report a bug or request a feature?</summary>
+            <div class="faq-answer">
+              <div class="faq-answer-inner">Open an issue on <a href="https://github.com/dexterity-admin/Fathom/issues" target="_blank">GitHub</a>. We tag bugs with <code>bug</code> and feature requests with <code>enhancement</code> — votes help prioritize.</div>
+            </div>
+          </details>
+        </div>
+      </div>
+    </section>
+
+    <!-- Download -->
+    <section id="download" class="download section reveal" aria-labelledby="download-title">
+      <div class="container">
+        <div class="section-header">
+          <h2 id="download-title">Download Fathom</h2>
+          <p>Available for Windows, macOS, and Linux. No account required.</p>
+        </div>
+        <div class="download-grid">
+          <article class="platform-card">
+            <div class="platform-icon">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/></svg>
+            </div>
+            <h3>Windows</h3>
+            <p>NSIS Installer & Portable (x64/ARM64)</p>
+            <div class="platform-req">Windows 10 1903+ (64-bit)</div>
+            <a href="https://github.com/dexterity-admin/Fathom/releases/latest" class="btn btn-primary" target="_blank">Download .exe</a>
+          </article>
+          <article class="platform-card">
+            <div class="platform-icon">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 12a6 6 0 0 0-6-6H6a6 6 0 0 0 0 12h12"/><path d="M12 6v6l4 2"/></svg>
+            </div>
+            <h3>macOS</h3>
+            <p>Universal DMG (Intel + Apple Silicon)</p>
+            <div class="platform-req">macOS 12+ (Monterey or later)</div>
+            <a href="https://github.com/dexterity-admin/Fathom/releases/latest" class="btn btn-primary" target="_blank">Download .dmg</a>
+          </article>
+          <article class="platform-card">
+            <div class="platform-icon">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+            </div>
+            <h3>Linux</h3>
+            <p>AppImage, .deb, .rpm, Snap, Flatpak</p>
+            <div class="platform-req">glibc 2.28+ (Ubuntu 20.04+, Fedora 33+, Arch)</div>
+            <a href="https://github.com/dexterity-admin/Fathom/releases/latest" class="btn btn-primary" target="_blank">Download</a>
+          </article>
+        </div>
+        <p style="color: var(--muted); font-size: 0.9rem; text-align: center; margin-top: 32px;">
+          <strong>Verify downloads:</strong> All releases are signed and checksums published on GitHub Releases.<br>
+          Source code: <a href="https://github.com/dexterity-admin/Fathom" style="color: var(--accent);" target="_blank">github.com/dexterity-admin/Fathom</a>
+        </p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-inner">
+        <div class="footer-links">
+          <a href="https://github.com/dexterity-admin/Fathom" target="_blank">GitHub</a>
+          <a href="#">Privacy</a>
+          <a href="#">Terms</a>
+          <a href="#">Contact</a>
+        </div>
+        <div class="footer-copy">© 2025 Fathom Labs. Built with ☕ — Business Source License 1.1</div>
+      </div>
+    </div>
+  </footer>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.165.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.165.0/examples/jsm/"
+    }
+  }
+  </script>
+  <script type="module">
+    import * as THREE from 'three';
+
+    // ===== MAIN HERO CANVAS =====
+    const container = document.getElementById('canvas-container');
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    container.appendChild(renderer.domElement);
+
+    const accentColor = new THREE.Color(0x2FB8A6);
+    const bgColor = new THREE.Color(0x06090F);
+    const mutedColor = new THREE.Color(0x8A98B4);
+
+    // Floating geometric shapes
+    const geometries = [
+      new THREE.IcosahedronGeometry(1, 0),
+      new THREE.OctahedronGeometry(1, 0),
+      new THREE.TetrahedronGeometry(1, 0),
+      new THREE.BoxGeometry(1, 1, 1),
+    ];
+
+    const shapes = [];
+    for (let i = 0; i < 18; i++) {
+      const geo = geometries[Math.floor(Math.random() * geometries.length)];
+      const material = new THREE.MeshPhysicalMaterial({
+        color: Math.random() > 0.6 ? accentColor : mutedColor,
+        metalness: 0.3,
+        roughness: 0.4,
+        transmission: 0.1,
+        thickness: 0.5,
+        transparent: true,
+        opacity: 0.6,
+      });
+      const mesh = new THREE.Mesh(geo, material);
+      mesh.position.set(
+        (Math.random() - 0.5) * 60,
+        (Math.random() - 0.5) * 40,
+        (Math.random() - 0.5) * 60 - 30
+      );
+      mesh.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, 0);
+      mesh.userData = {
+        velocity: new THREE.Vector3(
+          (Math.random() - 0.5) * 0.008,
+          (Math.random() - 0.5) * 0.008,
+          (Math.random() - 0.5) * 0.008
+        ),
+        rotationSpeed: new THREE.Vector3(
+          (Math.random() - 0.5) * 0.002,
+          (Math.random() - 0.5) * 0.002,
+          (Math.random() - 0.5) * 0.002
+        ),
+      };
+      scene.add(mesh);
+      shapes.push(mesh);
+    }
+
+    // Subtle grid floor
+    const gridGeo = new THREE.BufferGeometry();
+    const gridPositions = [];
+    const gridSize = 80, gridDiv = 40;
+    for (let i = 0; i <= gridDiv; i++) {
+      const x = -gridSize/2 + i * (gridSize/gridDiv);
+      gridPositions.push(x, -25, -gridSize/2, x, -25, gridSize/2);
+      gridPositions.push(-gridSize/2, -25, x, gridSize/2, -25, x);
+    }
+    gridGeo.setAttribute('position', new THREE.Float32BufferAttribute(gridPositions, 3));
+    const gridMat = new THREE.LineBasicMaterial({ color: 0x1E2A3A, transparent: true, opacity: 0.3 });
+    const grid = new THREE.LineSegments(gridGeo, gridMat);
+    scene.add(grid);
+
+    camera.position.set(0, 5, 35);
+    camera.lookAt(0, 0, 0);
+
+    let mouseX = 0, mouseY = 0;
+    document.addEventListener('mousemove', (e) => {
+      mouseX = (e.clientX / window.innerWidth - 0.5) * 2;
+      mouseY = (e.clientY / window.innerHeight - 0.5) * 2;
+    });
+
+    function animate() {
+      requestAnimationFrame(animate);
+      const time = performance.now() * 0.001;
+
+      shapes.forEach((mesh) => {
+        mesh.position.add(mesh.userData.velocity);
+        mesh.rotation.x += mesh.userData.rotationSpeed.x;
+        mesh.rotation.y += mesh.userData.rotationSpeed.y;
+        mesh.rotation.z += mesh.userData.rotationSpeed.z;
+
+        // Boundary bounce
+        if (Math.abs(mesh.position.x) > 35) mesh.userData.velocity.x *= -1;
+        if (Math.abs(mesh.position.y) > 25) mesh.userData.velocity.y *= -1;
+        if (Math.abs(mesh.position.z + 15) > 40) mesh.userData.velocity.z *= -1;
+
+        // Subtle float
+        mesh.position.y += Math.sin(time * 0.5 + mesh.position.x) * 0.005;
+      });
+
+      // Camera parallax
+      camera.position.x += (mouseX * 3 - camera.position.x) * 0.02;
+      camera.position.y += (-mouseY * 3 + 5 - camera.position.y) * 0.02;
+      camera.lookAt(0, 0, 0);
+
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    // ===== DIFFERENTIATOR CANVASES =====
+    function initDiffCanvas(id, type) {
+      const canvas = document.getElementById(id);
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      let w = canvas.clientWidth, h = 360;
+
+      function resize() {
+        w = canvas.clientWidth;
+        canvas.width = w * dpr;
+        canvas.height = h * dpr;
+        canvas.style.width = w + 'px';
+        canvas.style.height = h + 'px';
+        ctx.scale(dpr, dpr);
+      }
+
+      const accent = '#2FB8A6';
+      const muted = '#8A98B4';
+      const bg = '#0E141F';
+
+      let particles = [];
+      const count = type === 'search' ? 80 : type === 'preview' ? 50 : type === 'treemap' ? 30 : type === 'dedup' ? 60 : 40;
+
+      class P {
+        constructor() { this.reset(); }
+        reset() {
+          this.x = Math.random() * w;
+          this.y = Math.random() * h;
+          this.vx = (Math.random() - 0.5) * (type === 'treemap' ? 0.2 : 0.4);
+          this.vy = (Math.random() - 0.5) * (type === 'treemap' ? 0.2 : 0.4);
+          this.r = Math.random() * 2 + 1;
+          this.color = Math.random() > 0.7 ? accent : muted;
+          this.alpha = Math.random() * 0.4 + 0.1;
+        }
+        update() {
+          this.x += this.vx;
+          this.y += this.vy;
+          if (type === 'treemap') {
+            // Grid snap
+            this.vx *= 0.99;
+            this.vy *= 0.99;
+          }
+          if (this.x < 0 || this.x > w || this.y < 0 || this.y > h) this.reset();
+        }
+        draw() {
+          ctx.beginPath();
+          ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
+          const [r, g, b] = this.color === accent ? [47, 184, 166] : [138, 152, 180];
+          ctx.fillStyle = `rgba(${r},${g},${b},${this.alpha})`;
+          ctx.fill();
+        }
+      }
+
+      for (let i = 0; i < count; i++) particles.push(new P());
+
+      let mouse = { x: -1000, y: -1000 };
+      canvas.addEventListener('mousemove', e => {
+        const rect = canvas.getBoundingClientRect();
+        mouse.x = (e.clientX - rect.left);
+        mouse.y = (e.clientY - rect.top);
+      });
+      canvas.addEventListener('mouseleave', () => { mouse.x = -1000; mouse.y = -1000; });
+
+      function drawConnections() {
+        for (let i = 0; i < particles.length; i++) {
+          for (let j = i + 1; j < particles.length; j++) {
+            const dx = particles[i].x - particles[j].x;
+            const dy = particles[i].y - particles[j].y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist < (type === 'treemap' ? 100 : 120)) {
+              const opacity = (1 - dist / (type === 'treemap' ? 100 : 120)) * 0.12;
+              ctx.beginPath();
+              ctx.moveTo(particles[i].x, particles[i].y);
+              ctx.lineTo(particles[j].x, particles[j].y);
+              ctx.strokeStyle = `rgba(47,184,166,${opacity})`;
+              ctx.lineWidth = 0.5;
+              ctx.stroke();
+            }
+          }
+          const mdx = particles[i].x - mouse.x;
+          const mdy = particles[i].y - mouse.y;
+          const mdist = Math.sqrt(mdx * mdx + mdy * mdy);
+          if (mdist < 180) {
+            const opacity = (1 - mdist / 180) * 0.2;
+            ctx.beginPath();
+            ctx.moveTo(particles[i].x, particles[i].y);
+            ctx.lineTo(mouse.x, mouse.y);
+            ctx.strokeStyle = `rgba(47,184,166,${opacity})`;
+            ctx.lineWidth = 0.8;
+            ctx.stroke();
+          }
+        }
+      }
+
+      function loop() {
+        ctx.clearRect(0, 0, w, h);
+        // Background grid for treemap
+        if (type === 'treemap') {
+          ctx.strokeStyle = 'rgba(30,42,58,0.5)';
+          ctx.lineWidth = 0.5;
+          const step = 40;
+          for (let x = 0; x < w; x += step) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke(); }
+          for (let y = 0; y < h; y += step) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
+        }
+        drawConnections();
+        for (const p of particles) { p.update(); p.draw(); }
+        requestAnimationFrame(loop);
+      }
+
+      resize();
+      loop();
+      window.addEventListener('resize', resize);
+    }
+
+    initDiffCanvas('diff-canvas-1', 'search');
+    initDiffCanvas('diff-canvas-2', 'preview');
+    initDiffCanvas('diff-canvas-3', 'treemap');
+    initDiffCanvas('diff-canvas-4', 'dedup');
+    initDiffCanvas('diff-canvas-5', 'organize');
+
+    // ===== PRICING TOGGLE =====
+    const toggle = document.getElementById('billing-toggle');
+    const lblMonthly = document.getElementById('lbl-monthly');
+    const lblAnnual = document.getElementById('lbl-annual');
+    let isAnnual = false;
+
+    function updatePricing() {
+      document.querySelectorAll('.pricing-card').forEach(card => {
+        const priceEl = card.querySelector('.pricing-price');
+        const monthly = parseFloat(priceEl.dataset.monthly);
+        const annual = parseFloat(priceEl.dataset.annual);
+        const tier = card.dataset.tier;
+
+        if (isAnnual) {
+          priceEl.innerHTML = `$${annual}<span>/yr</span>`;
+          if (tier === 'team') priceEl.innerHTML = `$${annual}<span>/user/yr</span>`;
+        } else {
+          priceEl.innerHTML = `$${monthly}<span>/mo</span>`;
+          if (tier === 'team') priceEl.innerHTML = `$${monthly}<span>/user/mo</span>`;
+        }
+      });
+    }
+
+    toggle.addEventListener('click', () => {
+      isAnnual = !isAnnual;
+      toggle.classList.toggle('active', isAnnual);
+      lblMonthly.classList.toggle('active', !isAnnual);
+      lblAnnual.classList.toggle('active', isAnnual);
+      toggle.setAttribute('aria-checked', isAnnual);
+      updatePricing();
+    });
+
+    // ===== FAQ ACCORDION =====
+    document.querySelectorAll('.faq-item').forEach(item => {
+      const summary = item.querySelector('.faq-question');
+      summary.addEventListener('click', (e) => {
+        e.preventDefault();
+        item.classList.toggle('open');
+      });
+      // Keyboard support
+      summary.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          item.classList.toggle('open');
+        }
+      });
+    });
+
+    // ===== SCROLL REVEAL =====
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');
+        }
+      });
+    }, { threshold: 0.1, rootMargin: '0px 0px -50px 0px' });
+
+    document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+    // ===== DRIVE BAR ANIMATION =====
+    const driveC = document.querySelector('.drive-fill.c');
+    const driveD = document.querySelector('.drive-fill.d');
+    const driveObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          driveC.style.width = '97%';
+          driveD.style.width = '96%';
+        }
+      });
+    }, { threshold: 0.3 });
+    driveObserver.observe(document.querySelector('.pain-drive'));
+  </script>
+</body>
+</html>
