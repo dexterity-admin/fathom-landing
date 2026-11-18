@@ -790,16 +790,8 @@
     </div>
   </footer>
 
-  <script type="importmap">
-  {
-    "imports": {
-      "three": "https://unpkg.com/three@0.165.0/build/three.module.js",
-      "three/addons/": "https://unpkg.com/three@0.165.0/examples/jsm/"
-    }
-  }
-  </script>
   <script type="module">
-    import * as THREE from 'three';
+    import * as THREE from './vendor/three.module.js';
 
     // ===== MAIN HERO CANVAS =====
     const container = document.getElementById('canvas-container');
